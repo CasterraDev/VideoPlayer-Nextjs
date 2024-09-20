@@ -1,9 +1,8 @@
 "use client"
 import React, { useRef, useState } from 'react'
 import { HiCog8Tooth } from "react-icons/hi2";
-import { FaC, FaRegClock } from "react-icons/fa6";
+import { FaCheck, FaRegClock, FaRegClosedCaptioning } from "react-icons/fa6";
 import { LuSettings2 } from "react-icons/lu";
-import { FaCheck } from "react-icons/fa6";
 
 type videoOptionsProps = {
     quality: string
@@ -12,11 +11,31 @@ type videoOptionsProps = {
     setPlaybackRate: (playbackRate: number) => void;
     qualityOptions?: string[];
     playbackRateOptions?: number[];
+    captionFiles?: CaptionFile[];
+    setCaptionFileIdx?: (captionIdx: number | null) => void;
+    defaultCaptionFile?: number | string;
+}
+
+const initCaptionFile = (def: number | string, capFiles: CaptionFile[]): number | null => {
+    if (typeof def == "number") {
+        return def;
+    } else {
+        let i: number = 0;
+        capFiles.map((f) => {
+            if (f.displayLang == def) {
+                return i
+            }
+            i++;
+        })
+    }
+    console.warn("Default Caption File not found. Defaulting to first caption file in array")
+    return 0
 }
 
 export default function VideoOptions(props: videoOptionsProps) {
     const [menuShown, setMenuShown] = useState<boolean>(false);
     const [tabNum, setTabNum] = useState<number>(props.qualityOptions ? 1 : 2);
+    const [curCcFileIdx, setCurCcFileIdx] = useState<number | null>(props.defaultCaptionFile ? initCaptionFile(props.defaultCaptionFile, props.captionFiles || []) : null)
     const menuRef = useRef(null);
 
     const toggleMenu = () => {
@@ -47,6 +66,11 @@ export default function VideoOptions(props: videoOptionsProps) {
                         {props.playbackRateOptions &&
                             <div className={`Tabs p-1 bg-grey h-full w-[2em] ${tabNum === 2 ? "text-white" : "text-[rgba(200,200,200,0.9)]"}`}>
                                 <button className='w-full' onClick={() => changeTabNum(2)}><FaRegClock className='w-full h-auto' /></button>
+                            </div>
+                        }
+                        {props.captionFiles && props.captionFiles.length > 0 &&
+                            <div className={`Tabs p-1 bg-grey h-full w-[2em] ${tabNum === 3 ? "text-white" : "text-[rgba(200,200,200,0.9)]"}`}>
+                                <button className='w-full' onClick={() => changeTabNum(3)}><FaRegClosedCaptioning className='w-full h-auto' /></button>
                             </div>
                         }
                     </div>
@@ -90,6 +114,44 @@ export default function VideoOptions(props: videoOptionsProps) {
                                 </div>
                             ))}
                         </div>
+                        }
+                        {tabNum == 3 &&
+                            <div>
+                                <div className={`${null == curCcFileIdx ? "text-blue-500" : "text-white"} cursor-pointer h-[1.5em] w-full justify-between rounded-sm flex flex-row items-center
+                                    ${null != curCcFileIdx && "hover:text-orange-500"} hover:bg-[rgba(0,0,0,0.4)] focus:bg-[rgba(0,0,0,0.4)]`}
+                                    onClick={() => {
+                                        if (curCcFileIdx === null) return;
+                                        if (props.setCaptionFileIdx != null) {
+                                            props.setCaptionFileIdx(null);
+                                            setCurCcFileIdx(null)
+                                        }
+                                    }}>
+                                    <div className='w-[.2em]'>
+                                        {null == curCcFileIdx ? <FaCheck /> : ''}
+                                    </div>
+                                    <div className="font-semibold tracking-[.5px] relative top-[-1px]">
+                                        Off
+                                    </div>
+                                </div>
+                                {props.captionFiles && props.captionFiles.map((ccFile, i) => (
+                                    <div className={`${i == curCcFileIdx ? "text-blue-500" : "text-white"} cursor-pointer h-[1.5em] w-full justify-between rounded-sm flex flex-row items-center
+                                        ${i != curCcFileIdx && "hover:text-orange-500"} hover:bg-[rgba(0,0,0,0.4)] focus:bg-[rgba(0,0,0,0.4)]`}
+                                        onClick={() => {
+                                            if (curCcFileIdx === i) return;
+                                            if (props.setCaptionFileIdx != null) {
+                                                props.setCaptionFileIdx(i);
+                                                setCurCcFileIdx(i)
+                                            }
+                                        }}>
+                                        <div className='w-[.2em]'>
+                                            {i == curCcFileIdx ? <FaCheck /> : ''}
+                                        </div>
+                                        <div className="font-semibold tracking-[.5px] relative top-[-1px]">
+                                            {ccFile.displayLang}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         }
                     </div>
                 </div>

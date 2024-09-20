@@ -19,7 +19,7 @@ export default function ElapsedTimeTracker({ ...props }) {
     }
 
     return (
-        <div className='flex items-center font-semibold gap-[4px] p-0 text-white h-auto block'>
+        <div className='items-center font-semibold gap-[4px] p-0 text-white h-auto'>
             <div className='flex justify-self-end'>
                 <p className="p-0 m-0">
                     {secFormatter(props.elapsedSec)} / {secFormatter(props.durationSec)}

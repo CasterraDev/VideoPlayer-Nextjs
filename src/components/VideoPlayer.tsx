@@ -12,8 +12,25 @@ type VideoPlayerProps = {
     playbackOptions?: number[] | boolean;
     qualityOptions?: string[] | boolean;
     autoplay?: boolean;
-    captionFiles?: string[];
+    captionFiles?: CaptionFile[];
+    defaultCaptionFile?: number | string;
     preload?: "metadata" | "auto" | "none"
+}
+
+const initCaptionFile = (def: number | string, capFiles: CaptionFile[]): number | null => {
+    if (typeof def == "number") {
+        return def;
+    } else {
+        let i: number = 0;
+        capFiles.map((f) => {
+            if (f.displayLang == def) {
+                return i
+            }
+            i++;
+        })
+    }
+    console.warn("Default Caption File not found. Defaulting to first caption file in array")
+    return 0
 }
 
 export default function VideoPlayer(props: VideoPlayerProps) {
@@ -26,12 +43,11 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const [durationSec, setDurationSec] = useState<number>(1);
     const [elapsedSec, setElapsedSec] = useState<number>(1);
     const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
-    const [captionFile, setCaptionFile] = useState<string>(props.captionFiles ? props.captionFiles[0] : "")
+    const [captionFileIdx, setCaptionFileIdx] = useState<number | null>(props.defaultCaptionFile ? initCaptionFile(props.defaultCaptionFile, props.captionFiles || []) : null)
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);
-    const captionRef = useRef<HTMLTrackElement>(null);
 
     useEffect(() => {
         if (!videoRef.current) {
@@ -224,9 +240,8 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                 <video id="video" onClick={handlePlayPauseClick} ref={videoRef} className='relative w-full h-auto' preload={props.preload || "metadata"} autoPlay={props.autoplay}>
                     <source src={props.src} />
                     <track
-                        ref={captionRef}
                         kind="captions"
-                        src={captionFile}
+                        src={props.captionFiles && captionFileIdx != null ? props.captionFiles[captionFileIdx].src : undefined}
                         default
                     />
                 </video>
@@ -274,6 +289,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                             <div className='buttonsRight flex gap-[.5rem] columns-[ltr]'>
                                 {(props.settings || props.qualityOptions || props.playbackOptions) &&
                                     <VideoOptions playbackRate={playbackRate} setPlaybackRate={setPlaybackRate} quality={quality} setQuality={changeQuality}
+                                        captionFiles={props.captionFiles || []} setCaptionFileIdx={setCaptionFileIdx}
                                         playbackRateOptions={(props.playbackOptions || props.settings)
                                             ? (((typeof props.playbackOptions == "boolean") || (props.settings && (typeof props.playbackOptions == "undefined")))
                                                 ? [.25, .50, .75, 1, 1.25, 1.5, 1.75, 2]
