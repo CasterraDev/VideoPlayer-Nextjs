@@ -110,6 +110,8 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     });
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const videoContainerRef = useRef<HTMLDivElement>(null);
+    const controlsRef = useRef<HTMLDivElement>(null);
     const captionRef = useRef<HTMLDivElement>(null);
     const timelineRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
@@ -188,17 +190,52 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             }
         }
 
+        let timeoutID: NodeJS.Timeout | string | number | undefined = undefined
+        const videoMouseMove = () => {
+            if (!controlsRef.current || !videoContainerRef.current) return
+            console.log("Hi")
+            clearTimeout(timeoutID)
+            controlsRef.current.style.opacity = '100'
+            videoContainerRef.current.style.cursor = 'auto'
+
+            if (isFullscreen) {
+                timeoutID = setTimeout(function() {
+                    if (!controlsRef.current || !videoContainerRef.current) return
+                    controlsRef.current.style.opacity = '0'
+                    videoContainerRef.current.style.cursor = 'none'
+                }, 5000)
+            }
+        }
+
+        const videoMouseLeave = () => {
+            if (!controlsRef.current || !videoContainerRef.current) return
+            clearTimeout(timeoutID)
+            videoContainerRef.current.style.cursor = 'auto'
+            if (isPlaying){
+                controlsRef.current.style.opacity = '0'
+            }
+        }
+
         element.addEventListener("progress", onProgress);
         element.addEventListener("timeupdate", onTimeUpdate);
         element.addEventListener("waiting", onWaiting);
-        videoRef.current.textTracks[0].mode = 'hidden'
-        videoRef.current.textTracks[0].addEventListener("cuechange", updateCues)
+        if (videoContainerRef.current) {
+            videoContainerRef.current.addEventListener("mousemove", videoMouseMove)
+            videoContainerRef.current.addEventListener("mouseleave", videoMouseLeave)
+        }
+        element.textTracks[0].mode = 'hidden'
+        element.textTracks[0].addEventListener("cuechange", updateCues)
 
         // clean up
         return () => {
+            if (videoContainerRef.current) {
+                videoContainerRef.current.removeEventListener("mousemove", videoMouseMove)
+                videoContainerRef.current.removeEventListener("mouseleave", videoMouseLeave)
+            }
             element.removeEventListener("waiting", onWaiting);
             element.removeEventListener("progress", onProgress);
             element.removeEventListener("timeupdate", onTimeUpdate);
+            element.textTracks[0].removeEventListener("cuechange", updateCues)
         };
     });
 
@@ -391,7 +428,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
 
     return (
         <div className='h-fit'>
-            <div className='flex h-fit bg-[rgb(41,41,41)] flex-col items-center justify-center relative overflow-hidden group' id="videoContainer">
+            <div ref={videoContainerRef} className='flex h-fit bg-[rgb(41,41,41)] flex-col items-center justify-center relative overflow-hidden group' id="videoContainer">
                 {isWaiting && <div className='absolute'>Loading</div>}
                 <video id="video" onClick={handlePlayPauseClick} ref={videoRef} preload={props.preload || "metadata"} autoPlay={props.autoplay}
                     className="w-full h-auto">
@@ -409,8 +446,8 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                             -1px 1px 4px ${captionStyles.edgeColor}, 1px 1px 4px ${captionStyles.edgeColor}` : ""}`,
                     }}>
                 </div>
-                <div className='ControlsContainer group-hover:opacity-100 flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
-                    bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear'>
+                <div ref={controlsRef} className={`ControlsContainer ${!isPlaying && "opacity-100"} flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
+                    bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear`}>
                     <div className='controls flex flex-col w-full items-center'>
                         <div
                             className='progressBar flex cursor-pointer w-full transiton-[height] duration-[0.1s] ease-linear h-[6px] mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] overflow-hidden hover:h-[10px]'
