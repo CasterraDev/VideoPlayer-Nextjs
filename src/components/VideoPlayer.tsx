@@ -1,5 +1,5 @@
 "use client"
-import React, { MouseEvent, useEffect, useRef, useState } from 'react'
+import React, { MouseEvent, Reducer, useEffect, useReducer, useRef, useState } from 'react'
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { RiFullscreenExitFill, RiFullscreenFill } from 'react-icons/ri';
 import ElapsedTimeTracker from './ElapsedTimeTracker';
@@ -33,6 +33,54 @@ const initCaptionFile = (def: number | string, capFiles: CaptionFile[]): number 
     return 0
 }
 
+type CaptionStyleAction =
+    | {
+        type: "CHANGE_DATA_LIST";
+    }
+    | {
+        type: "SET_IN_DROP_ZONE";
+    }
+    | {
+        type: "CHANGE_FONT_COLOR";
+        fc: string
+    }
+    | {
+        type: "CHANGE_BG_COLOR";
+        bgColor: string
+    }
+
+enum CaptionColor {
+    white = 'white',
+    black = 'black',
+    red = 'rgb(255,0,0)',
+    green = 'green-500',
+    blue = 'rgb(0,0,255)',
+    yellow = 'yellow-500',
+    magenta = 'purple-500',
+    cyan = 'cyan-500',
+    transparent = 'transparent'
+}
+
+type CaptionStyleState = {
+    fontColor: string
+    fontSize: string
+    bgColor: string
+    edgeColor: string
+    characterEdge: "raised" | "depressed"
+}
+
+function reducer(state: CaptionStyleState, action: CaptionStyleAction): CaptionStyleState {
+    switch (action.type) {
+        case "CHANGE_FONT_COLOR":
+            return { ...state, fontColor: action.fc };
+        case "CHANGE_BG_COLOR":
+            return { ...state, bgColor: action.bgColor };
+        default:
+            return state;
+    }
+};
+
+
 export default function VideoPlayer(props: VideoPlayerProps) {
     const [muted, setMuted] = useState<boolean>(false);
     const [isFullscreen, setFullscreen] = useState<boolean>(false);
@@ -43,9 +91,18 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const [durationSec, setDurationSec] = useState<number>(1);
     const [elapsedSec, setElapsedSec] = useState<number>(1);
     const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
-    const [captionFileIdx, setCaptionFileIdx] = useState<number | null>(props.defaultCaptionFile ? initCaptionFile(props.defaultCaptionFile, props.captionFiles || []) : null)
+    const [captionFileIdx, setCaptionFileIdx] = useState<number | null>(props.defaultCaptionFile != null ? initCaptionFile(props.defaultCaptionFile, props.captionFiles || []) : null)
+
+    const [captionStyle, dispatchCaptionStyle] = useReducer<Reducer<CaptionStyleState, CaptionStyleAction>>(reducer, {
+        fontColor: CaptionColor.white,
+        fontSize: '2em',
+        bgColor: CaptionColor.transparent,
+        characterEdge: "raised",
+        edgeColor: "#000000"
+    });
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const captionRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);
 
@@ -79,11 +136,30 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             }
         };
 
-
+        const updateCues = () => {
+            if (!videoRef.current) return
+            const textTrack = videoRef.current.textTracks[0]
+            const cues = textTrack.activeCues
+            if (cues == null) return;
+            const c: VTTCue = cues[0] as VTTCue
+            console.log(cues[0])
+            if (cues.length > 0) {
+                if (captionRef.current) {
+                    if (c.track) {
+                        captionRef.current.innerHTML = c.text
+                        captionRef.current.hidden = false;
+                    } else {
+                        captionRef.current.hidden = true
+                    }
+                }
+            }
+        }
 
         element.addEventListener("progress", onProgress);
         element.addEventListener("timeupdate", onTimeUpdate);
         element.addEventListener("waiting", onWaiting);
+        videoRef.current.textTracks[0].mode = 'hidden'
+        videoRef.current.textTracks[0].addEventListener("cuechange", updateCues)
 
         // clean up
         return () => {
@@ -237,7 +313,8 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         <div className='h-fit'>
             <div className='flex h-fit bg-[rgb(41,41,41)] flex-col items-center justify-center relative overflow-hidden group' id="videoContainer">
                 {isWaiting && <div className='absolute'>Loading</div>}
-                <video id="video" onClick={handlePlayPauseClick} ref={videoRef} className='relative w-full h-auto' preload={props.preload || "metadata"} autoPlay={props.autoplay}>
+                <video id="video" onClick={handlePlayPauseClick} ref={videoRef} preload={props.preload || "metadata"} autoPlay={props.autoplay}
+                    className="w-full h-auto">
                     <source src={props.src} />
                     <track
                         kind="captions"
@@ -245,6 +322,13 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                         default
                     />
                 </video>
+                <div hidden ref={captionRef} className='SubtitleContainer absolute bottom-20 p-2'
+                    style={{
+                        color: captionStyle.fontColor, backgroundColor: captionStyle.bgColor, fontSize: `${captionStyle.fontSize}`, outlineColor: captionStyle.bgColor,
+                        textShadow: `${captionStyle.characterEdge == "raised" ? `-1px -1px 4px ${captionStyle.edgeColor}, 1px -1px 4px ${captionStyle.edgeColor},
+                            -1px 1px 4px ${captionStyle.edgeColor}, 1px 1px 4px ${captionStyle.edgeColor};` : ""}`
+                    }}>
+                </div>
                 <div className='ControlsContainer group-hover:opacity-100 flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
                     bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear'>
                     <div className='controls flex flex-col w-full items-center'>

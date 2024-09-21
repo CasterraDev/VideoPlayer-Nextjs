@@ -56,7 +56,7 @@ export default function VideoOptions(props: videoOptionsProps) {
                 </div>
             </button>
             {menuShown &&
-                <div className="text-white absolute bg-[rgba(0,0,0,0.6)] p-2 rounded bottom-[50px] w-[12em] h-fit right-[50%] cursor-default" ref={menuRef}>
+                <div className="text-white absolute bg-[rgba(0,0,0,0.8)] p-2 rounded bottom-[50px] w-[12em] h-fit right-[50%] cursor-default" ref={menuRef}>
                     <div className='TabHead border-b-2 border-b-black flex gap-[.5em]'>
                         {props.qualityOptions &&
                             <div className={`Tabs p-1 bg-grey h-full w-[2em] ${tabNum === 1 ? "text-white" : "text-[rgba(200,200,200,0.9)]"}`}>
@@ -117,6 +117,9 @@ export default function VideoOptions(props: videoOptionsProps) {
                         }
                         {tabNum == 3 &&
                             <div>
+                                <div className='underline text-slate-300 ml-auto w-fit cursor-pointer hover:text-orange-500'>
+                                    Settings
+                                </div>
                                 <div className={`${null == curCcFileIdx ? "text-blue-500" : "text-white"} cursor-pointer h-[1.5em] w-full justify-between rounded-sm flex flex-row items-center
                                     ${null != curCcFileIdx && "hover:text-orange-500"} hover:bg-[rgba(0,0,0,0.4)] focus:bg-[rgba(0,0,0,0.4)]`}
                                     onClick={() => {
