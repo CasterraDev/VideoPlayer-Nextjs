@@ -1,10 +1,11 @@
 "use client"
-import React, { MouseEvent, Reducer, useEffect, useReducer, useRef, useState } from 'react'
+import React, { MouseEvent, Reducer, Ref, useEffect, useReducer, useRef, useState } from 'react'
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { RiFullscreenExitFill, RiFullscreenFill } from 'react-icons/ri';
 import ElapsedTimeTracker from './ElapsedTimeTracker';
 import VolumeControl from './VolumeControl';
 import VideoOptions from './VideoOptions';
+import { CaptionColor, CaptionFile, CaptionStyleState } from '@/types/VideoPlayer';
 
 type VideoPlayerProps = {
     src: string;
@@ -13,7 +14,7 @@ type VideoPlayerProps = {
     qualityOptions?: string[] | boolean;
     autoplay?: boolean;
     captionFiles?: CaptionFile[];
-    defaultCaptionFile?: number | string;
+    defaultCaptionFile?: number | string | null;
     preload?: "metadata" | "auto" | "none"
 }
 
@@ -33,53 +34,58 @@ const initCaptionFile = (def: number | string, capFiles: CaptionFile[]): number 
     return 0
 }
 
-type CaptionStyleAction =
-    | {
-        type: "CHANGE_DATA_LIST";
-    }
-    | {
-        type: "SET_IN_DROP_ZONE";
-    }
-    | {
-        type: "CHANGE_FONT_COLOR";
-        fc: string
-    }
-    | {
-        type: "CHANGE_BG_COLOR";
-        bgColor: string
-    }
-
-enum CaptionColor {
-    white = 'white',
-    black = 'black',
-    red = 'rgb(255,0,0)',
-    green = 'green-500',
-    blue = 'rgb(0,0,255)',
-    yellow = 'yellow-500',
-    magenta = 'purple-500',
-    cyan = 'cyan-500',
-    transparent = 'transparent'
-}
-
-type CaptionStyleState = {
-    fontColor: string
-    fontSize: string
-    bgColor: string
-    edgeColor: string
-    characterEdge: "raised" | "depressed"
+type CaptionStyleAction = {
+    type: string
+    val: string
 }
 
 function reducer(state: CaptionStyleState, action: CaptionStyleAction): CaptionStyleState {
     switch (action.type) {
         case "CHANGE_FONT_COLOR":
-            return { ...state, fontColor: action.fc };
+            return { ...state, fontColor: action.val };
+        case "CHANGE_FONT_SIZE":
+            const str = action.val.slice(0, -1)
+            const num = 2 * (Number(str) / 100)
+            const s = String(num) + "em"
+            return { ...state, fontSize: s };
         case "CHANGE_BG_COLOR":
-            return { ...state, bgColor: action.bgColor };
+            return { ...state, bgColor: action.val };
+        case "CHANGE_BG_OPACITY":
+            return { ...state, bgOpacity: action.val };
+        case "CHANGE_CHARACTER_EDGE":
+            return { ...state, characterEdge: action.val };
+        case "CHANGE_EDGE_COLOR":
+            return { ...state, edgeColor: action.val };
         default:
             return state;
     }
 };
 
+const displayColorsToCaptionColors = (s: string): string => {
+    switch (s) {
+        case "White":
+            return CaptionColor.white
+        case "Black":
+            return CaptionColor.black
+        case "Red":
+            return CaptionColor.red
+        case "Blue":
+            return CaptionColor.blue
+        case "Green":
+            return CaptionColor.green
+        case "Yellow":
+            return CaptionColor.yellow
+        case "Magenta":
+            return CaptionColor.magenta
+        case "Cyan":
+            return CaptionColor.cyan
+        case "Transparent":
+            return CaptionColor.transparent
+        default:
+            break;
+    }
+    return "Error"
+}
 
 export default function VideoPlayer(props: VideoPlayerProps) {
     const [muted, setMuted] = useState<boolean>(false);
@@ -92,19 +98,47 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const [elapsedSec, setElapsedSec] = useState<number>(1);
     const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
     const [captionFileIdx, setCaptionFileIdx] = useState<number | null>(props.defaultCaptionFile != null ? initCaptionFile(props.defaultCaptionFile, props.captionFiles || []) : null)
+    const [isPlaying, setIsPlaying] = useState<boolean>(false)
 
-    const [captionStyle, dispatchCaptionStyle] = useReducer<Reducer<CaptionStyleState, CaptionStyleAction>>(reducer, {
+    const [captionStyles, dispatchCaptionStyles] = useReducer<Reducer<CaptionStyleState, CaptionStyleAction>>(reducer, {
         fontColor: CaptionColor.white,
         fontSize: '2em',
-        bgColor: CaptionColor.transparent,
-        characterEdge: "raised",
-        edgeColor: "#000000"
+        bgColor: CaptionColor.black,
+        bgOpacity: '0%',
+        characterEdge: "Raised",
+        edgeColor: CaptionColor.black
     });
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const captionRef = useRef<HTMLDivElement>(null);
+    const timelineRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);
+
+    const updateStyles = (str: string, val: any) => {
+        switch (str) {
+            case "Font Color":
+                dispatchCaptionStyles({ type: "CHANGE_FONT_COLOR", val: displayColorsToCaptionColors(val) })
+                break;
+            case "Font Size":
+                dispatchCaptionStyles({ type: "CHANGE_FONT_SIZE", val: val })
+                break;
+            case "Background Color":
+                dispatchCaptionStyles({ type: "CHANGE_BG_COLOR", val: displayColorsToCaptionColors(val) })
+                break;
+            case "Background Opacity":
+                dispatchCaptionStyles({ type: "CHANGE_BG_OPACITY", val: val })
+                break;
+            case "Character Edge":
+                dispatchCaptionStyles({ type: "CHANGE_CHARACTER_EDGE", val: val })
+                break;
+            case "Edge Color":
+                dispatchCaptionStyles({ type: "CHANGE_EDGE_COLOR", val: displayColorsToCaptionColors(val) })
+                break;
+            default:
+                break;
+        }
+    }
 
     useEffect(() => {
         if (!videoRef.current) {
@@ -142,7 +176,6 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             const cues = textTrack.activeCues
             if (cues == null) return;
             const c: VTTCue = cues[0] as VTTCue
-            console.log(cues[0])
             if (cues.length > 0) {
                 if (captionRef.current) {
                     if (c.track) {
@@ -189,11 +222,29 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         if (videoRef.current) {
             if (!videoRef.current.paused) {
                 videoRef.current.pause();
+                setIsPlaying(false)
             } else {
                 videoRef.current.play();
+                setIsPlaying(true)
             }
         }
     };
+
+    const pauseVideo = (b: boolean, updateState: boolean) => {
+        if (videoRef.current) {
+            if (!videoRef.current.paused && b) {
+                videoRef.current.pause();
+                if (updateState) {
+                    setIsPlaying(false)
+                }
+            } else if (videoRef.current.paused && !b) {
+                videoRef.current.play();
+                if (updateState) {
+                    setIsPlaying(true)
+                }
+            }
+        }
+    }
 
     const toggleFullscreen = () => {
         var vc = document.getElementById("videoContainer");
@@ -247,9 +298,56 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             }
         }
 
+        const timelineMouseMove = (e: any) => {
+            e.stopPropagation()
+            e.preventDefault()
+            if (!videoRef.current || !timelineRef.current) return;
+            const durationMs = videoRef.current.duration * 1000 || 0;
+            const { left, width } =
+                timelineRef.current.getBoundingClientRect();
+            const clickedPos = (e.clientX - left) / width;
+
+            const newElapsedMs = durationMs * clickedPos;
+            const newTimeSec = newElapsedMs / 1000;
+            if (isScrubbing) {
+                videoRef.current.currentTime = newTimeSec;
+            }
+        }
+
+        const timelineMouseDown = (e: any) => {
+            e.stopPropagation()
+            e.preventDefault()
+            if (!videoRef.current || !timelineRef.current) return;
+            const durationMs = videoRef.current.duration * 1000 || 0;
+            const { left, width } =
+                timelineRef.current.getBoundingClientRect();
+            const clickedPos = (e.clientX - left) / width;
+
+            const newElapsedMs = durationMs * clickedPos;
+            const newTimeSec = newElapsedMs / 1000;
+            setIsScrubbing(true)
+            if (isPlaying) pauseVideo(true, false)
+            videoRef.current.currentTime = newTimeSec;
+        }
+
+        const timelineMouseUp = (e: any) => {
+            e.stopPropagation()
+            e.preventDefault()
+            if (isScrubbing) {
+                setIsScrubbing(false)
+                if (isPlaying) pauseVideo(false, false);
+            }
+        }
+
         const element = videoRef.current;
         const duration = element?.duration || 0;
         setDurationSec(duration);
+
+        if (timelineRef.current) {
+            timelineRef.current.addEventListener("mousedown", timelineMouseDown)
+            document.addEventListener("mousemove", timelineMouseMove)
+            document.addEventListener("mouseup", timelineMouseUp)
+        }
 
         document.addEventListener("keyup", keyPresses)
         document.addEventListener("fullscreenchange", onFullScreenChange);
@@ -258,6 +356,11 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         document.addEventListener("msfullscreenchange", onFullScreenChange);
 
         return () => {
+            if (timelineRef.current) {
+                timelineRef.current.removeEventListener("mousedown", timelineMouseDown)
+                document.removeEventListener("mousemove", timelineMouseMove)
+                document.removeEventListener("mouseup", timelineMouseUp)
+            }
             document.removeEventListener("keyup", keyPresses);
             document.removeEventListener("fullscreenchange", onFullScreenChange);
             document.removeEventListener("mozfullscreenchange", onFullScreenChange);
@@ -275,38 +378,15 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         videoRef.current.currentTime += v;
     }
 
-    const timelineMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-        if (!videoRef.current) return;
-        const durationMs = videoRef.current.duration * 1000 || 0;
-        const { left, width } =
-            e.currentTarget.getBoundingClientRect();
-        const clickedPos = (e.clientX - left) / width;
 
-        const newElapsedMs = durationMs * clickedPos;
-        const newTimeSec = newElapsedMs / 1000;
-        if (isScrubbing) {
-            e.preventDefault()
-            videoRef.current.currentTime = newTimeSec;
-        }
-    }
 
-    const timelineMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-        if (!videoRef.current) return;
-        const durationMs = videoRef.current.duration * 1000 || 0;
-        const { left, width } =
-            e.currentTarget.getBoundingClientRect();
-        const clickedPos = (e.clientX - left) / width;
-
-        const newElapsedMs = durationMs * clickedPos;
-        const newTimeSec = newElapsedMs / 1000;
-        setIsScrubbing(true)
-        setMuted(true)
-        videoRef.current.currentTime = newTimeSec;
-    }
-
-    const timelineMouseUp = (e: MouseEvent<HTMLDivElement>) => {
-        setIsScrubbing(false)
-        setMuted(false)
+    const makeBgColor = (bg: string, op: string): string => {
+        if (bg == CaptionColor.transparent) return bg
+        const i = bg.lastIndexOf(")")
+        const rgb = bg.slice(0, i);
+        const opc = String(Number(op.slice(0, -1)) / 100)
+        const str = rgb + "," + opc + ")"
+        return str
     }
 
     return (
@@ -322,11 +402,11 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                         default
                     />
                 </video>
-                <div hidden ref={captionRef} className='SubtitleContainer absolute bottom-20 p-2'
+                <div hidden ref={captionRef} className={`SubtitleContainer absolute bottom-20 p-2 ${props.captionFiles && captionFileIdx != null ? "block" : "hidden"}`}
                     style={{
-                        color: captionStyle.fontColor, backgroundColor: captionStyle.bgColor, fontSize: `${captionStyle.fontSize}`, outlineColor: captionStyle.bgColor,
-                        textShadow: `${captionStyle.characterEdge == "raised" ? `-1px -1px 4px ${captionStyle.edgeColor}, 1px -1px 4px ${captionStyle.edgeColor},
-                            -1px 1px 4px ${captionStyle.edgeColor}, 1px 1px 4px ${captionStyle.edgeColor};` : ""}`
+                        color: captionStyles.fontColor, backgroundColor: makeBgColor(captionStyles.bgColor, captionStyles.bgOpacity), fontSize: captionStyles.fontSize, outlineColor: captionStyles.bgColor,
+                        textShadow: `${captionStyles.characterEdge == "Raised" ? `-1px -1px 4px ${captionStyles.edgeColor}, 1px -1px 4px ${captionStyles.edgeColor},
+                            -1px 1px 4px ${captionStyles.edgeColor}, 1px 1px 4px ${captionStyles.edgeColor}` : ""}`,
                     }}>
                 </div>
                 <div className='ControlsContainer group-hover:opacity-100 flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
@@ -334,9 +414,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                     <div className='controls flex flex-col w-full items-center'>
                         <div
                             className='progressBar flex cursor-pointer w-full transiton-[height] duration-[0.1s] ease-linear h-[6px] mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] overflow-hidden hover:h-[10px]'
-                            onMouseMove={(e) => { timelineMouseMove(e) }}
-                            onMouseDown={(e) => { timelineMouseDown(e) }}
-                            onMouseUp={(e) => { timelineMouseUp(e) }}>
+                            ref={timelineRef}>
                             <div className='progressBarColors flex relative w-full h-full'>
                                 <div
                                     className='playProgress h-full z-[1] bg-[#0caadc]'
@@ -373,7 +451,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                             <div className='buttonsRight flex gap-[.5rem] columns-[ltr]'>
                                 {(props.settings || props.qualityOptions || props.playbackOptions) &&
                                     <VideoOptions playbackRate={playbackRate} setPlaybackRate={setPlaybackRate} quality={quality} setQuality={changeQuality}
-                                        captionFiles={props.captionFiles || []} setCaptionFileIdx={setCaptionFileIdx}
+                                        captionProps={{ captionFiles: props.captionFiles || [], setCaptionFileIdx, captionStyles, updateStyles }}
                                         playbackRateOptions={(props.playbackOptions || props.settings)
                                             ? (((typeof props.playbackOptions == "boolean") || (props.settings && (typeof props.playbackOptions == "undefined")))
                                                 ? [.25, .50, .75, 1, 1.25, 1.5, 1.75, 2]
