@@ -115,6 +115,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const captionRef = useRef<HTMLDivElement>(null);
     const timelineRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
+    const thumbRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);
 
     const updateStyles = (str: string, val: any) => {
@@ -157,7 +158,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             if (!element.buffered) return;
             const bufferedEnd: any = element.buffered.end;
             const duration = element.duration;
-            if (bufferRef && duration > 0 && bufferRef.current !== null) {
+            if (bufferRef && duration > 0 && bufferRef.current) {
                 bufferRef.current.style.width = (bufferedEnd / duration) * 100 + "%";
             }
         };
@@ -166,9 +167,10 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             setIsWaiting(false);
             const duration = element.duration;
             setElapsedSec(element.currentTime);
-            if (progressRef && duration > 0 && progressRef.current !== null) {
+            if (progressRef && duration > 0 && progressRef.current && thumbRef.current) {
                 progressRef.current.style.width =
                     (element.currentTime / duration) * 100 + "%";
+                thumbRef.current.style.left = (element.currentTime / duration) * 100 - 1 + "%"
             }
         };
 
@@ -193,7 +195,6 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         let timeoutID: NodeJS.Timeout | string | number | undefined = undefined
         const videoMouseMove = () => {
             if (!controlsRef.current || !videoContainerRef.current) return
-            console.log("Hi")
             clearTimeout(timeoutID)
             controlsRef.current.style.opacity = '100'
             videoContainerRef.current.style.cursor = 'auto'
@@ -450,16 +451,18 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                     bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear`}>
                     <div className='controls flex flex-col w-full items-center'>
                         <div
-                            className='progressBar flex cursor-pointer w-full transiton-[height] duration-[0.1s] ease-linear h-[6px] mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] overflow-hidden hover:h-[10px]'
+                            className='group/progressBar relative flex cursor-pointer overflow-visible w-full transiton-[height] duration-[0.1s] ease-linear h-[6px] mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] hover:h-[10px]'
                             ref={timelineRef}>
-                            <div className='progressBarColors flex relative w-full h-full'>
+                            <div className='absolute opacity-0 w-[1em] h-[1em] overflow-visible rounded-full bg-[#0caadc] bottom-[-75%] group-hover/progressBar:bottom-[-25%] group-hover/progressBar:opacity-100 z-10' ref={thumbRef} />
+                            <div className='progressBarColors flex relative w-full h-full overflow-hidden'>
                                 <div
-                                    className='playProgress h-full z-[1] bg-[#0caadc]'
+                                    className='playProgress h-full z-[1] bg-[#0caadc] relative rounded-lg'
                                     ref={progressRef}
-                                />
+                                >
+                                </div>
 
                                 <div
-                                    className='bufferProgress absolute h-full bg-[#fdfffc]'
+                                    className='bufferProgress absolute h-full bg-[#fdfffc] rounded-lg'
                                     ref={bufferRef}
                                 />
                             </div>
