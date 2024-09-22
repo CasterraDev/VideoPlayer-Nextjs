@@ -1,5 +1,5 @@
 "use client"
-import React, { MouseEvent, Reducer, Ref, useEffect, useReducer, useRef, useState } from 'react'
+import React, { Reducer, useEffect, useReducer, useRef, useState } from 'react'
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { RiFullscreenExitFill, RiFullscreenFill } from 'react-icons/ri';
 import ElapsedTimeTracker from './ElapsedTimeTracker';
@@ -205,21 +205,22 @@ export default function VideoPlayer(props: VideoPlayerProps) {
 
         const onProgress = () => {
             if (!vid.buffered) return;
-            const bufferedEnd: any = vid.buffered.end;
-            const duration = vid.duration;
-            if (bufferRef && duration > 0 && bufferRef.current) {
+            const bufferedEnd: number = vid.buffered.end(vid.buffered.length - 1);
+            const duration: number = vid.duration;
+            if (bufferRef && duration > 0 && bufferRef.current && bufferedEnd) {
                 bufferRef.current.style.width = (bufferedEnd / duration) * 100 + "%";
             }
         };
 
         const onTimeUpdate = () => {
             setIsWaiting(false);
-            const duration = vid.duration;
             setElapsedSec(vid.currentTime);
-            if (progressRef && duration > 0 && progressRef.current && thumbRef.current) {
+            if (progressRef && progressRef.current && thumbRef.current) {
+                // FIXME: Scrubbing is laggy for some reason
                 progressRef.current.style.width =
                     (vid.currentTime / duration) * 100 + "%";
-                thumbRef.current.style.left = (vid.currentTime / duration) * 100 - 1 + "%"
+                // FIXME: This isn't completely centered on the progressBar line but it's good enough that no one should notice
+                thumbRef.current.style.left = (vid.currentTime / duration) * 100 - .5 + "%"
             }
         };
 
@@ -303,18 +304,19 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         }
 
         const timelineMouseMove = (e: any) => {
-            e.stopPropagation()
-            e.preventDefault()
             if (!videoRef.current || !timelineRef.current) return;
-            const durationMs = videoRef.current.duration * 1000 || 0;
-            const { left, width } =
-                timelineRef.current.getBoundingClientRect();
-            const clickedPos = (e.clientX - left) / width;
-
-            const newElapsedMs = durationMs * clickedPos;
-            const newTimeSec = newElapsedMs / 1000;
+            const rect = timelineRef.current.getBoundingClientRect()
+            const percent = Math.min(Math.max(0, e.clientX - rect.x), rect.width) / rect.width
             if (isScrubbing) {
-                videoRef.current.currentTime = newTimeSec;
+                videoRef.current.currentTime = percent * videoRef.current.duration;
+                setElapsedSec(vid.currentTime);
+                if (progressRef && progressRef.current && thumbRef.current) {
+                    // FIXME: Scrubbing is laggy for some reason
+                    progressRef.current.style.width =
+                        (vid.currentTime / duration) * 100 + "%";
+                    // FIXME: This isn't completely centered on the progressBar line but it's good enough that no one should notice
+                    thumbRef.current.style.left = (vid.currentTime / duration) * 100 - .5 + "%"
+                }
             }
         }
 
@@ -322,16 +324,11 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             e.stopPropagation()
             e.preventDefault()
             if (!videoRef.current || !timelineRef.current) return;
-            const durationMs = videoRef.current.duration * 1000 || 0;
-            const { left, width } =
-                timelineRef.current.getBoundingClientRect();
-            const clickedPos = (e.clientX - left) / width;
-
-            const newElapsedMs = durationMs * clickedPos;
-            const newTimeSec = newElapsedMs / 1000;
+            const rect = timelineRef.current.getBoundingClientRect()
+            const percent = Math.min(Math.max(0, e.clientX - rect.x), rect.width) / rect.width
             setIsScrubbing(true)
             if (isPlaying) pauseVideo(true, false)
-            videoRef.current.currentTime = newTimeSec;
+            videoRef.current.currentTime = percent * videoRef.current.duration;
         }
 
         const timelineMouseUp = (e: any) => {
@@ -423,9 +420,11 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                     bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear`}>
                     <div className='controls flex flex-col w-full items-center'>
                         <div
-                            className='group/progressBar relative flex cursor-pointer overflow-visible w-full transiton-[height] duration-[0.1s] ease-linear h-[6px] mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] hover:h-[10px]'
+                            className='group/timelineBar relative flex cursor-pointer overflow-visible w-full transiton-[height] duration-[0.1s] ease-linear h-[6px]
+                                mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] hover:h-[10px]'
                             ref={timelineRef}>
-                            <div className='absolute opacity-0 w-[1em] h-[1em] overflow-visible rounded-full bg-[#0caadc] bottom-[-75%] group-hover/progressBar:bottom-[-25%] group-hover/progressBar:opacity-100 z-10' ref={thumbRef} />
+                            <div className='absolute opacity-0 w-[1em] h-[1em] overflow-visible rounded-full bg-[#0caadc] bottom-[-75%]
+                                group-hover/timelineBar:bottom-[-25%] group-hover/timelineBar:opacity-100 z-10 pointer-events-none' ref={thumbRef} />
                             <div className='progressBarColors flex relative w-full h-full overflow-hidden'>
                                 <div
                                     className='playProgress h-full z-[1] bg-[#0caadc] relative rounded-lg'
@@ -434,7 +433,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                                 </div>
 
                                 <div
-                                    className='bufferProgress absolute h-full bg-[#fdfffc] rounded-lg'
+                                    className='bufferProgress absolute h-full bg-slate-400 rounded-lg'
                                     ref={bufferRef}
                                 />
                             </div>
