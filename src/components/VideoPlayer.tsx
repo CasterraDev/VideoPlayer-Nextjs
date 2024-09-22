@@ -6,6 +6,7 @@ import ElapsedTimeTracker from './ElapsedTimeTracker';
 import VolumeControl from './VolumeControl';
 import VideoOptions from './VideoOptions';
 import { CaptionColor, CaptionFile, CaptionStyleState } from '@/types/VideoPlayer';
+import { displayColorsToCaptionColors, AddAlphaToRGBColor } from '@/utils/VideoPlayer';
 
 type VideoPlayerProps = {
     src: string;
@@ -76,32 +77,6 @@ function reducer(state: CaptionStyleState, action: CaptionStyleAction): CaptionS
     }
 };
 
-const displayColorsToCaptionColors = (s: string): string => {
-    switch (s) {
-        case "White":
-            return CaptionColor.white
-        case "Black":
-            return CaptionColor.black
-        case "Red":
-            return CaptionColor.red
-        case "Blue":
-            return CaptionColor.blue
-        case "Green":
-            return CaptionColor.green
-        case "Yellow":
-            return CaptionColor.yellow
-        case "Magenta":
-            return CaptionColor.magenta
-        case "Cyan":
-            return CaptionColor.cyan
-        case "Transparent":
-            return CaptionColor.transparent
-        default:
-            break;
-    }
-    return "Error"
-}
-
 export default function VideoPlayer(props: VideoPlayerProps) {
     const [muted, setMuted] = useState<boolean>(false);
     const [isFullscreen, setFullscreen] = useState<boolean>(false);
@@ -157,103 +132,6 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                 break;
         }
     }
-
-    useEffect(() => {
-        if (!videoRef.current) {
-            return;
-        }
-
-        const onWaiting = () => {
-            setIsWaiting(true);
-        };
-
-        const element = videoRef.current;
-
-        const onProgress = () => {
-            if (!element.buffered) return;
-            const bufferedEnd: any = element.buffered.end;
-            const duration = element.duration;
-            if (bufferRef && duration > 0 && bufferRef.current) {
-                bufferRef.current.style.width = (bufferedEnd / duration) * 100 + "%";
-            }
-        };
-
-        const onTimeUpdate = () => {
-            setIsWaiting(false);
-            const duration = element.duration;
-            setElapsedSec(element.currentTime);
-            if (progressRef && duration > 0 && progressRef.current && thumbRef.current) {
-                progressRef.current.style.width =
-                    (element.currentTime / duration) * 100 + "%";
-                thumbRef.current.style.left = (element.currentTime / duration) * 100 - 1 + "%"
-            }
-        };
-
-        const updateCues = () => {
-            if (!videoRef.current) return
-            const textTrack = videoRef.current.textTracks[0]
-            const cues = textTrack.activeCues
-            if (cues == null) return;
-            const c: VTTCue = cues[0] as VTTCue
-            if (cues.length > 0) {
-                if (captionRef.current) {
-                    if (c.track) {
-                        captionRef.current.innerHTML = c.text
-                        captionRef.current.hidden = false;
-                    } else {
-                        captionRef.current.hidden = true
-                    }
-                }
-            }
-        }
-
-        let timeoutID: NodeJS.Timeout | string | number | undefined = undefined
-        const videoMouseMove = () => {
-            if (!controlsRef.current || !videoContainerRef.current) return
-            clearTimeout(timeoutID)
-            controlsRef.current.style.opacity = '100'
-            videoContainerRef.current.style.cursor = 'auto'
-
-            if (isFullscreen) {
-                timeoutID = setTimeout(function() {
-                    if (!controlsRef.current || !videoContainerRef.current) return
-                    controlsRef.current.style.opacity = '0'
-                    videoContainerRef.current.style.cursor = 'none'
-                }, 5000)
-            }
-        }
-
-        const videoMouseLeave = () => {
-            if (!controlsRef.current || !videoContainerRef.current) return
-            clearTimeout(timeoutID)
-            videoContainerRef.current.style.cursor = 'auto'
-            if (isPlaying) {
-                controlsRef.current.style.opacity = '0'
-            }
-        }
-
-        element.addEventListener("progress", onProgress);
-        element.addEventListener("timeupdate", onTimeUpdate);
-        element.addEventListener("waiting", onWaiting);
-        if (videoContainerRef.current) {
-            videoContainerRef.current.addEventListener("mousemove", videoMouseMove)
-            videoContainerRef.current.addEventListener("mouseleave", videoMouseLeave)
-        }
-        element.textTracks[0].mode = 'hidden'
-        element.textTracks[0].addEventListener("cuechange", updateCues)
-
-        // clean up
-        return () => {
-            if (videoContainerRef.current) {
-                videoContainerRef.current.removeEventListener("mousemove", videoMouseMove)
-                videoContainerRef.current.removeEventListener("mouseleave", videoMouseLeave)
-            }
-            element.removeEventListener("waiting", onWaiting);
-            element.removeEventListener("progress", onProgress);
-            element.removeEventListener("timeupdate", onTimeUpdate);
-            element.textTracks[0].removeEventListener("cuechange", updateCues)
-        };
-    });
 
     useEffect(() => {
         if (!videoRef.current) return;
@@ -315,6 +193,79 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     };
 
     useEffect(() => {
+        if (!videoRef.current) {
+            return;
+        }
+
+        const vid = videoRef.current;
+
+        const onWaiting = () => {
+            setIsWaiting(true);
+        };
+
+        const onProgress = () => {
+            if (!vid.buffered) return;
+            const bufferedEnd: any = vid.buffered.end;
+            const duration = vid.duration;
+            if (bufferRef && duration > 0 && bufferRef.current) {
+                bufferRef.current.style.width = (bufferedEnd / duration) * 100 + "%";
+            }
+        };
+
+        const onTimeUpdate = () => {
+            setIsWaiting(false);
+            const duration = vid.duration;
+            setElapsedSec(vid.currentTime);
+            if (progressRef && duration > 0 && progressRef.current && thumbRef.current) {
+                progressRef.current.style.width =
+                    (vid.currentTime / duration) * 100 + "%";
+                thumbRef.current.style.left = (vid.currentTime / duration) * 100 - 1 + "%"
+            }
+        };
+
+        const updateCues = () => {
+            if (!videoRef.current) return
+            const textTrack = videoRef.current.textTracks[0]
+            const cues = textTrack.activeCues
+            if (cues == null) return;
+            const c: VTTCue = cues[0] as VTTCue
+            if (cues.length > 0) {
+                if (captionRef.current) {
+                    if (c.track) {
+                        captionRef.current.innerHTML = c.text
+                        captionRef.current.hidden = false;
+                    } else {
+                        captionRef.current.hidden = true
+                    }
+                }
+            }
+        }
+
+        let timeoutID: NodeJS.Timeout | string | number | undefined = undefined
+        const videoMouseMove = () => {
+            if (!controlsRef.current || !videoContainerRef.current) return
+            clearTimeout(timeoutID)
+            controlsRef.current.style.opacity = '100'
+            videoContainerRef.current.style.cursor = 'auto'
+
+            if (isFullscreen) {
+                timeoutID = setTimeout(function() {
+                    if (!controlsRef.current || !videoContainerRef.current) return
+                    controlsRef.current.style.opacity = '0'
+                    videoContainerRef.current.style.cursor = 'none'
+                }, 5000)
+            }
+        }
+
+        const videoMouseLeave = () => {
+            if (!controlsRef.current || !videoContainerRef.current) return
+            clearTimeout(timeoutID)
+            videoContainerRef.current.style.cursor = 'auto'
+            if (isPlaying) {
+                controlsRef.current.style.opacity = '0'
+            }
+        }
+
         const onFullScreenChange = () => {
             if (document.fullscreenElement !== null) {
                 setFullscreen(true);
@@ -392,9 +343,18 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             }
         }
 
-        const element = videoRef.current;
-        const duration = element?.duration || 0;
+        const duration = vid?.duration || 0;
         setDurationSec(duration);
+
+        vid.addEventListener("progress", onProgress);
+        vid.addEventListener("timeupdate", onTimeUpdate);
+        vid.addEventListener("waiting", onWaiting);
+        if (videoContainerRef.current) {
+            videoContainerRef.current.addEventListener("mousemove", videoMouseMove)
+            videoContainerRef.current.addEventListener("mouseleave", videoMouseLeave)
+        }
+        vid.textTracks[0].mode = 'hidden'
+        vid.textTracks[0].addEventListener("cuechange", updateCues)
 
         if (timelineRef.current) {
             timelineRef.current.addEventListener("mousedown", timelineMouseDown)
@@ -409,6 +369,15 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         document.addEventListener("msfullscreenchange", onFullScreenChange);
 
         return () => {
+            if (videoContainerRef.current) {
+                videoContainerRef.current.removeEventListener("mousemove", videoMouseMove)
+                videoContainerRef.current.removeEventListener("mouseleave", videoMouseLeave)
+            }
+            vid.removeEventListener("waiting", onWaiting);
+            vid.removeEventListener("progress", onProgress);
+            vid.removeEventListener("timeupdate", onTimeUpdate);
+            vid.textTracks[0].removeEventListener("cuechange", updateCues)
+
             if (timelineRef.current) {
                 timelineRef.current.removeEventListener("mousedown", timelineMouseDown)
                 document.removeEventListener("mousemove", timelineMouseMove)
@@ -431,17 +400,6 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         videoRef.current.currentTime += v;
     }
 
-
-
-    const makeBgColor = (bg: string, op: string): string => {
-        if (bg == CaptionColor.transparent) return bg
-        const i = bg.lastIndexOf(")")
-        const rgb = bg.slice(0, i);
-        const opc = String(Number(op.slice(0, -1)) / 100)
-        const str = rgb + "," + opc + ")"
-        return str
-    }
-
     return (
         <div className='h-fit'>
             <div ref={videoContainerRef} className='flex h-fit bg-[rgb(41,41,41)] flex-col items-center justify-center relative overflow-hidden group' id="videoContainer">
@@ -457,7 +415,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                 </video>
                 <div hidden ref={captionRef} className={`SubtitleContainer absolute bottom-20 p-2 ${props.captionFiles && captionFileIdx != null ? "block" : "hidden"}`}
                     style={{
-                        color: captionStyles.fontColor, backgroundColor: makeBgColor(captionStyles.bgColor, captionStyles.bgOpacity), fontSize: captionStyles.fontSize, outlineColor: captionStyles.bgColor,
+                        color: captionStyles.fontColor, backgroundColor: AddAlphaToRGBColor(captionStyles.bgColor, captionStyles.bgOpacity), fontSize: captionStyles.fontSize, outlineColor: captionStyles.bgColor,
                         textShadow: characterEdgeTextShadow(captionStyles.characterEdge, captionStyles.edgeColor),
                     }}>
                 </div>
