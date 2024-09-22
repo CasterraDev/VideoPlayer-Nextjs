@@ -12,7 +12,10 @@ type VideoPlayerProps = {
     src: string;
     settings?: boolean;
     playbackOptions?: number[] | boolean;
+    playbackCallback?: (playbackRate: number) => void
     qualityOptions?: string[] | boolean;
+    defaultQuality?: string;
+    qualityCallback?: (quality: string) => void
     autoplay?: boolean;
     captionFiles?: CaptionFile[];
     defaultCaptionFile?: number | string | null;
@@ -83,7 +86,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const [isWaiting, setIsWaiting] = useState<boolean>(false);
     const [volume, setVolume] = useState<number>(1);
     const [playbackRate, setPlaybackRate] = useState<number>(1);
-    const [quality, setQuality] = useState<string>(props.qualityOptions && typeof props.qualityOptions != "boolean" && props.qualityOptions[0] || "1080");
+    const [quality, setQuality] = useState<string>(props.qualityOptions && typeof props.qualityOptions != "boolean" && props.qualityOptions[0] || (props.defaultQuality || "1080p"));
     const [durationSec, setDurationSec] = useState<number>(1);
     const [elapsedSec, setElapsedSec] = useState<number>(1);
     const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
@@ -107,6 +110,20 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     const progressRef = useRef<HTMLDivElement>(null);
     const thumbRef = useRef<HTMLDivElement>(null);
     const bufferRef = useRef<HTMLDivElement>(null);
+
+    const callQualityCallback = (quality: string) => {
+        setQuality(quality);
+        if (props.qualityCallback){
+            props.qualityCallback(quality);
+        }
+    }
+
+    const callplaybackCallback = (playback: number) => {
+        setPlaybackRate(playback);
+        if (props.playbackCallback){
+            props.playbackCallback(playback);
+        }
+    }
 
     const updateStyles = (str: string, val: any) => {
         switch (str) {
@@ -206,6 +223,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         const onProgress = () => {
             if (!vid.buffered) return;
             const bufferedEnd: number = vid.buffered.end(vid.buffered.length - 1);
+            console.log(bufferedEnd)
             const duration: number = vid.duration;
             if (bufferRef && duration > 0 && bufferRef.current && bufferedEnd) {
                 bufferRef.current.style.width = (bufferedEnd / duration) * 100 + "%";
@@ -388,10 +406,6 @@ export default function VideoPlayer(props: VideoPlayerProps) {
         };
     });
 
-    const changeQuality = (q: string) => {
-        setQuality(q);
-    }
-
     const skip = (v: number) => {
         if (!videoRef.current) return
         videoRef.current.currentTime += v;
@@ -461,14 +475,14 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                             </div>
                             <div className='buttonsRight flex gap-[.5rem] columns-[ltr]'>
                                 {(props.settings || props.qualityOptions || props.playbackOptions) &&
-                                    <VideoOptions playbackRate={playbackRate} setPlaybackRate={setPlaybackRate} quality={quality} setQuality={changeQuality}
+                                    <VideoOptions playbackRate={playbackRate} setPlaybackRate={callplaybackCallback} quality={quality} setQuality={callQualityCallback}
                                         captionProps={{ captionFiles: props.captionFiles || [], setCaptionFileIdx, captionStyles, updateStyles }}
-                                        playbackRateOptions={(props.playbackOptions || props.settings)
+                                        playbackRateOptions={((props.playbackOptions || props.settings) && props.playbackOptions != false)
                                             ? (((typeof props.playbackOptions == "boolean") || (props.settings && (typeof props.playbackOptions == "undefined")))
                                                 ? [.25, .50, .75, 1, 1.25, 1.5, 1.75, 2]
                                                 : props.playbackOptions)
                                             : undefined}
-                                        qualityOptions={(props.qualityOptions || props.settings)
+                                        qualityOptions={((props.qualityOptions || props.settings) && props.qualityOptions != false)
                                             ? (((typeof props.qualityOptions == "boolean") || (props.settings && (typeof props.qualityOptions == "undefined")))
                                                 ? ["1080p", "720p", "480p", "360p"]
                                                 : props.qualityOptions)

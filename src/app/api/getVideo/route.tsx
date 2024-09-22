@@ -1,7 +1,7 @@
 import fs from "fs";
 import { NextRequest, NextResponse } from "next/server";
 
-const CHUNK_SIZE_IN_BYTES = 1000000; //1mb
+const CHUNK_SIZE_IN_BYTES = 50000000; //1mb
 
 function streamFile(path: string, options?: any): ReadableStream<Uint8Array> {
     const downloadStream = fs.createReadStream(path, options);
