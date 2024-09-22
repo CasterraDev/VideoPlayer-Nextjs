@@ -34,6 +34,21 @@ const initCaptionFile = (def: number | string, capFiles: CaptionFile[]): number 
     return 0
 }
 
+const characterEdgeTextShadow = (s: string, edgeColor: string): string => {
+    if (s == "Raised") {
+        return `-1px -1px 4px ${edgeColor}, 1px -1px 4px ${edgeColor},
+            -1px 1px 4px ${edgeColor}, 1px 1px 4px ${edgeColor}`
+    }else if (s == "Depressed"){
+        return `0px -3px 2px ${edgeColor}`
+    }else if (s == "Uniform"){
+        return `2px 0 ${edgeColor}, -2px 0 ${edgeColor}, 0 2px ${edgeColor}, 0 -2px ${edgeColor},
+             1px 1px ${edgeColor}, -1px -1px ${edgeColor}, 1px -1px ${edgeColor}, -1px 1px ${edgeColor}`
+    }else if (s == "Drop Shadow"){
+        return `-3px 0 2px ${edgeColor}`
+    }
+    return "";
+}
+
 type CaptionStyleAction = {
     type: string
     val: string
@@ -212,7 +227,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
             if (!controlsRef.current || !videoContainerRef.current) return
             clearTimeout(timeoutID)
             videoContainerRef.current.style.cursor = 'auto'
-            if (isPlaying){
+            if (isPlaying) {
                 controlsRef.current.style.opacity = '0'
             }
         }
@@ -443,8 +458,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                 <div hidden ref={captionRef} className={`SubtitleContainer absolute bottom-20 p-2 ${props.captionFiles && captionFileIdx != null ? "block" : "hidden"}`}
                     style={{
                         color: captionStyles.fontColor, backgroundColor: makeBgColor(captionStyles.bgColor, captionStyles.bgOpacity), fontSize: captionStyles.fontSize, outlineColor: captionStyles.bgColor,
-                        textShadow: `${captionStyles.characterEdge == "Raised" ? `-1px -1px 4px ${captionStyles.edgeColor}, 1px -1px 4px ${captionStyles.edgeColor},
-                            -1px 1px 4px ${captionStyles.edgeColor}, 1px 1px 4px ${captionStyles.edgeColor}` : ""}`,
+                        textShadow: characterEdgeTextShadow(captionStyles.characterEdge, captionStyles.edgeColor),
                     }}>
                 </div>
                 <div ref={controlsRef} className={`ControlsContainer ${!isPlaying && "opacity-100"} flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
