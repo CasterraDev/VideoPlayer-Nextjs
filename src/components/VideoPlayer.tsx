@@ -431,23 +431,23 @@ export default function VideoPlayer(props: VideoPlayerProps) {
                     }}>
                 </div>
                 <div ref={controlsRef} className={`ControlsContainer ${!isPlaying && "opacity-100"} flex w-full box-border h-[100px] absolute opacity-0 left-0 bottom-0 items-end p-4
-                    bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.5)] transition-opacity duration-[0.3s] ease-linear`}>
+                    bg-[linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.8))] transition-opacity duration-[0.3s] ease-linear`}>
                     <div className='controls flex flex-col w-full items-center'>
                         <div
                             className='group/timelineBar relative flex cursor-pointer overflow-visible w-full transiton-[height] duration-[0.1s] ease-linear h-[6px]
-                                mb-[.5rem] rounded-[5px] bg-[rgba(193,193,193,0.5)] hover:h-[10px]'
+                                mb-[.5rem] bg-[rgba(193,193,193,0.5)] hover:h-[10px]'
                             ref={timelineRef}>
                             <div className='absolute opacity-0 w-[1em] h-[1em] overflow-visible rounded-full bg-[#0caadc] bottom-[-75%]
                                 group-hover/timelineBar:bottom-[-25%] group-hover/timelineBar:opacity-100 z-10 pointer-events-none' ref={thumbRef} />
                             <div className='progressBarColors flex relative w-full h-full overflow-hidden'>
                                 <div
-                                    className='playProgress h-full z-[1] bg-[#0caadc] relative rounded-lg'
+                                    className='playProgress h-full z-[1] bg-[#0caadc] relative'
                                     ref={progressRef}
                                 >
                                 </div>
 
                                 <div
-                                    className='bufferProgress absolute h-full bg-slate-400 rounded-lg'
+                                    className='bufferProgress absolute h-full bg-slate-400'
                                     ref={bufferRef}
                                 />
                             </div>
